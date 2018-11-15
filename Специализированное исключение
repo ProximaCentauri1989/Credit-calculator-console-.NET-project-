@@ -1,0 +1,13 @@
+//Просто наследуем от Exception, не добавляя никаких полей и методов/свойств
+namespace Financial
+{
+    class InvalidCreditException : Exception
+    {
+        public InvalidCreditException() { }
+        public InvalidCreditException(string mesg)
+            :base(mesg)
+        {
+
+        }
+    }
+}
