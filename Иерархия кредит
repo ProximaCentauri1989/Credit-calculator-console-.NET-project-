@@ -1,0 +1,414 @@
+namespace Financial
+{
+    public abstract class Credit
+    {
+        /*Nested types*/
+        protected class PaymentPeriod
+        {
+            /*Nested enumeration*/
+            public enum Month
+            {
+                January = 1,
+                February,
+                Marth,
+                April,
+                May,
+                June,
+                July,
+                August,
+                September,
+                October, 
+                November,
+                December = 12
+            }
+
+            /*Constructors*/
+            public PaymentPeriod()
+            {
+                CurrMonth = (Credit.PaymentPeriod.Month)DateTime.Now.Month;
+            }
+
+            /*Properties*/
+            public Month CurrMonth { get; set; }
+            public Single LoanBalance { get; set; }
+            public Single WholePayment { get; set; }
+            public Single CreditPayment { get; set; }
+            public Single InterestPayment { get; set; }
+
+            /*Methods*/
+            public static Month IncrementMonth(Month m)
+            {
+                Month nextMonth = m;
+
+                if (nextMonth == Month.December)
+                    nextMonth = Month.January;
+                else
+                {
+                    nextMonth++;
+                }
+
+                return nextMonth;
+            }
+
+            public override string ToString()
+            {
+                string periodByString = string.Format("{0,-15}\t{1,15:0.00}\t{2,15:0.00}\t{3,15:0.00}\t{4,15:0.00}", 
+                                                        CurrMonth.ToString(),
+                                                        LoanBalance,
+                                                        WholePayment,
+                                                        CreditPayment,
+                                                        InterestPayment);
+                return periodByString;
+            }
+        }
+
+        public enum CreditType
+        {
+            Annuity = 11,
+            Differential = 12,
+            AnnuityPlus = 13,
+            DifferentialPlus = 14
+        }
+
+        /*Constructors*/
+        public Credit(Single userLoan, CreditType creditID)
+            :this(userLoan, CREDIT_MIN_TERM, CREDIT_INTEREST_BY_DEFAULT, creditID)
+        {
+        }
+        public Credit(Single userLoan, Int32 userTerm, CreditType creditID)
+            :this(userLoan, userTerm, CREDIT_INTEREST_BY_DEFAULT, creditID)
+        {
+
+        }
+        public Credit(Single userLoan, Int32 userTerm, Single userInterest, CreditType creditID)
+        {
+            /*Expand loan limit*/
+            this.CreditID = creditID;
+
+            switch (this.CreditID)
+            {
+                case CreditType.AnnuityPlus:
+                    /*Expand loan limit*/
+                    CREDIT_MAX_LOAN = 400000;
+                    CREDIT_MAX_TERM = 96;
+                    break;
+                case CreditType.DifferentialPlus:
+                    CREDIT_MAX_LOAN = 500000;
+                    CREDIT_MAX_TERM = 120;
+                    break;
+                default:
+                    CREDIT_MAX_LOAN = 100000;
+                    CREDIT_MAX_TERM = 60;
+                    break;
+            }
+
+            this.Loan = userLoan;
+            this.Term = userTerm;
+            this.Interest = userInterest;
+            this.EntirePercentPayment = 0.0f;
+            this.EntireWholePayment = 0.0f;
+            this.table = new PaymentPeriod[userTerm];
+            this.creditTakenDate = DateTime.Now;
+            this.CreditID = creditID;
+
+            bCalculated = false;
+        }
+
+        /*Properties*/
+        public Single Loan
+        {
+            get { return loan; }
+            set
+            {
+                if (value >= CREDIT_MIN_LOAN && value <= CREDIT_MAX_LOAN)
+                {
+                    loan = value;
+                    this.bCalculated = false;
+                }
+                else
+                {
+                   throw new InvalidCreditException(String.Format("Invalid input data. Parameter \"Loan\" for \"{0}\" must be in range: [{1}, {2}]", 
+                                                        CreditID.ToString(), CREDIT_MIN_LOAN, CREDIT_MAX_LOAN));
+                }
+            }
+        }
+        public Single Interest
+        {
+            get { return interest;}
+            set
+            {
+                if (value >= CREDIT_MIN_INTEREST && value <= CREDIT_MAX_INTEREST)
+                {
+                    interest = value;
+                    this.interestRate = this.interest / CREDIT_FULL_PERCENT / CREDIT_MONTH_PER_YEAR;
+                    this.bCalculated = false;
+                }
+                else
+                {
+                    throw new InvalidCreditException(String.Format("Invalid input data. Parameter \"Interest\" for \"{0}\" must be in range: [{1}, {2}]",
+                                                        CreditID.ToString(), CREDIT_MIN_INTEREST, CREDIT_MAX_INTEREST));
+                }
+            }
+        }
+        protected Single InterestRate
+        {
+            get { return interestRate; }
+        }
+        protected Single EntirePercentPayment { get; set; }
+        protected Single EntireWholePayment { get; set; }
+        public Int32 Term
+        {
+            get { return term; }
+            set
+            {
+                if (value >= CREDIT_MIN_TERM && value <= CREDIT_MAX_TERM)
+                {
+                    term = value;
+                    bCalculated = false;
+                }
+                else
+                {
+                    throw new InvalidCreditException(String.Format("Invalid input data. Parameter \"Term\" for \"{0}\" must be in range: [{1}, {2}]",
+                                                        CreditID.ToString(), CREDIT_MIN_TERM, CREDIT_MAX_TERM));
+                }
+            }
+        }
+        private CreditType CreditID { get; set; }
+
+        protected string CreditName { get; set; }
+
+        /*Methods*/
+        protected void InitCreditTable()
+        {
+            Array.Clear(this.table, 0, this.table.Length);
+            this.table[0] = new PaymentPeriod();
+            this.table[0].CurrMonth = (Credit.PaymentPeriod.Month)creditTakenDate.Month;
+            for(Int32 count = 1; count < this.table.Length; count++)
+            {
+                this.table[count] = new PaymentPeriod();
+                this.table[count].CurrMonth = PaymentPeriod.IncrementMonth(this.table[count - 1].CurrMonth);
+            }
+        }
+        public void PaymentTable()
+        {
+            if(this.table[0] != null)
+            {
+                /*Draw table bottom*/
+                this.DrawTableHeader();
+
+                /*Draw lines*/
+                foreach (PaymentPeriod p in table)
+                {
+                    Console.WriteLine(p.ToString());
+                }
+
+                /*Draw table bottom*/
+                this.DrawTableBottom();
+            }
+            else
+            {
+                Console.WriteLine("Credit calculation is not executed");
+            }
+        }
+
+        private void DrawTableHeader()
+        {
+            /*Draw table header*/
+            for (Int32 i = 0; i < TABLE_FORMAT_WIDTH * TABLE_NUMBER_OF_COLUMNS; i++)
+                Console.Write("-");
+            Console.WriteLine("");
+
+            Console.WriteLine("{0, -15}\t{1, 15}\t{2, 15}\t{3, 15}\t{4, 15}", "Period\\Month|", "Loan|", "Whole payment|", "Credit payment|", "Percent payment");
+
+            for (Int32 i = 0; i < TABLE_FORMAT_WIDTH * TABLE_NUMBER_OF_COLUMNS; i++)
+                Console.Write("-");
+            Console.WriteLine("");
+        }
+
+        private void DrawTableBottom()
+        {
+            for (Int32 i = 0; i < TABLE_FORMAT_WIDTH * TABLE_NUMBER_OF_COLUMNS; i++)
+                Console.Write("-");
+            Console.WriteLine("");
+
+            Console.WriteLine("{0, -15}\t{1, 15}\t{2, 15}\t{3, 15}\t{4, 15}", "Loan summary|", 0, this.EntireWholePayment, this.Loan, this.EntirePercentPayment);
+
+            for (Int32 i = 0; i < TABLE_FORMAT_WIDTH * TABLE_NUMBER_OF_COLUMNS; i++)
+                Console.Write("-");
+            Console.WriteLine("");
+        }
+
+        public virtual void PaymentConditions()
+        {
+            Console.WriteLine("\tLoan: {0} c.u.\n\tInterest: {1}%\n\tTerm: {2} monthes",
+                                Math.Round(Loan, 4),
+                                Math.Round(Interest, 4),
+                                Term);
+            Console.WriteLine("\tTaken date: {0}", creditTakenDate.ToShortDateString());
+            Console.WriteLine("\tCredit cheme: {0}", CreditName);
+            Console.WriteLine("\tMaximum possible loan: {0}", this.CREDIT_MAX_LOAN);
+            Console.WriteLine("\tMaximum possible term: {0}", this.CREDIT_MAX_TERM);
+        }
+        public abstract void Calculate();
+
+
+        /*Data members: constant and readonly*/
+        private const Int16                 CREDIT_INTEREST_BY_DEFAULT = 15;
+        protected const Int32               CREDIT_MIN_LOAN = 5000;
+        public readonly Int32               CREDIT_MAX_LOAN;
+        protected const Int16               CREDIT_MIN_TERM = 6;
+        public readonly Int16               CREDIT_MAX_TERM;
+        protected const Int16               CREDIT_MIN_INTEREST = 1;
+        private const Int16                 CREDIT_MAX_INTEREST = 50;
+
+        private const Int16                 CREDIT_FULL_PERCENT = 100;
+        private const Int16                 CREDIT_MONTH_PER_YEAR = 12;
+        protected const Single              CREDIT_PAYMENT_EPSILON = 0.01f;
+
+        protected const Int32               TABLE_FORMAT_WIDTH = 16;
+        protected const Int32               TABLE_NUMBER_OF_COLUMNS = 5;
+
+        /*Data members: variables*/
+        private Single                      loan, interest, interestRate;
+        private Int32                       term;
+        protected DateTime                  creditTakenDate;
+        protected PaymentPeriod[]           table;
+        protected Boolean                   bCalculated;
+    }
+
+    public class AnnuityCredit : Credit
+    {
+        /*Constructors*/
+        public AnnuityCredit(float l, Credit.CreditType cID = Credit.CreditType.Annuity)
+            : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, cID) { }
+        public AnnuityCredit(float l, int t, Credit.CreditType cID = Credit.CreditType.Annuity)
+            : base(l, t, Credit.CREDIT_MIN_INTEREST, cID) { }
+        public AnnuityCredit(float l, int t, float i, Credit.CreditType cID = Credit.CreditType.Annuity)
+            : base(l, t, i, cID)
+        {
+            CreditName = "Annuity";
+        }
+
+        /*Methods*/
+        public override void PaymentConditions()
+        {
+            base.PaymentConditions();
+        }
+        public override void Calculate()
+        {
+            if(!base.bCalculated)
+            {
+                /*Clear table*/
+                base.InitCreditTable();
+
+                /*Calculations: annuity calculation cheme*/
+                ushort prev, curr = 0;
+
+                table[curr].LoanBalance = base.Loan;
+                table[curr].WholePayment = base.Loan * (base.InterestRate + base.InterestRate / ((float)Math.Pow(1.0f + base.InterestRate, base.Term) - 1.0f));
+                table[curr].InterestPayment = table[curr].LoanBalance * base.InterestRate;
+                table[curr].CreditPayment = table[curr].WholePayment - table[curr].InterestPayment;
+
+                base.EntirePercentPayment += table[curr].InterestPayment;
+                base.EntireWholePayment += table[curr].WholePayment;
+                prev = curr;
+                curr++;
+
+                for (int count = curr; count < base.table.Length; count++)
+                {
+                    table[count].LoanBalance = table[prev].LoanBalance - table[prev].CreditPayment;
+                    table[count].InterestPayment = table[count].LoanBalance * base.InterestRate;
+                    table[count].WholePayment = table[prev].WholePayment;
+                    table[count].CreditPayment = table[count].WholePayment - table[count].InterestPayment;
+                    base.EntireWholePayment += table[curr].WholePayment;
+                    base.EntirePercentPayment += table[count].InterestPayment;
+
+                    prev++;
+                }
+
+                bCalculated = true;
+            }
+        }
+    }
+
+    public class DifferentialCredit : Credit
+    {
+        public DifferentialCredit(Single l, Credit.CreditType cID = Credit.CreditType.Differential)
+            : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, cID) { }
+        public DifferentialCredit(Single l, Int32 t, Credit.CreditType cID = Credit.CreditType.Differential)
+            : base(l, t, Credit.CREDIT_MIN_INTEREST, cID) { }
+        public DifferentialCredit(Single l, Int32 t, Single i, Credit.CreditType cID = Credit.CreditType.Differential)
+            : base(l, t, i, cID)
+        {
+            CreditName = "Differential";
+        }
+
+        /*Methods*/
+        public override void PaymentConditions()
+        {
+            base.PaymentConditions();
+        }
+
+        public override void Calculate()
+        {
+            if(!base.bCalculated)
+            {
+                base.InitCreditTable();
+
+                /*Calculations: differential calculation cheme*/
+                ushort prev, curr = 0;
+
+                table[curr].LoanBalance = base.Loan;
+                table[curr].CreditPayment = base.Loan / base.Term;
+                table[curr].InterestPayment = table[curr].LoanBalance * base.InterestRate;
+                table[curr].WholePayment = table[curr].CreditPayment + table[curr].InterestPayment;
+
+                base.EntirePercentPayment += table[curr].InterestPayment;
+                base.EntireWholePayment += table[curr].WholePayment;
+                prev = curr;
+                curr++;
+
+                for (int count = curr; count < base.table.Length; count++)
+                {
+                    table[count].LoanBalance = table[prev].LoanBalance - table[prev].CreditPayment;
+                    table[count].InterestPayment = table[count].LoanBalance * base.InterestRate;
+                    table[count].WholePayment = table[prev].CreditPayment + table[count].InterestPayment;
+                    table[count].CreditPayment = table[count].WholePayment - table[count].InterestPayment;
+                    base.EntireWholePayment += table[count].WholePayment;
+                    base.EntirePercentPayment += table[count].InterestPayment;
+
+                    prev++;
+                }
+
+                bCalculated = true;
+            }
+
+        }
+    }
+
+    public sealed class DifferentialCreditPlus : DifferentialCredit
+    {
+        public DifferentialCreditPlus(Single l)
+            : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.DifferentialPlus) { }
+        public DifferentialCreditPlus(Single l, Int32 t)
+            : base(l, t, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.DifferentialPlus) { }
+        public DifferentialCreditPlus(Single l, Int32 t, Single i)
+            : base(l, t, i, Credit.CreditType.DifferentialPlus)
+        {
+            CreditName = "Differential-plus";
+        }
+    }
+
+    public sealed class AnnuityCreditPlus : AnnuityCredit
+    {
+        public AnnuityCreditPlus(Single l)
+            : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.AnnuityPlus) { }
+        public AnnuityCreditPlus(Single l, Int32 t)
+            : base(l, t, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.AnnuityPlus) { }
+        public AnnuityCreditPlus(Single l, Int32 t, Single i)
+            : base(l, t, i, Credit.CreditType.AnnuityPlus)
+        {
+            CreditName = "Annuity-plus";
+        }
+    } 
+}
