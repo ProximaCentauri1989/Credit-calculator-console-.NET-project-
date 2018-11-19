@@ -1,9 +1,9 @@
 namespace Financial
 {
-    public abstract class Credit
+    public abstract class Credit : ICloneable, IEnumerable, IComparable<Credit>
     {
         /*Nested types*/
-        protected class PaymentPeriod
+        protected class PaymentPeriod : ICloneable
         {
             /*Nested enumeration*/
             public enum Month
@@ -59,6 +59,11 @@ namespace Financial
                                                         CreditPayment,
                                                         InterestPayment);
                 return periodByString;
+            }
+
+            public object Clone()
+            {
+                return this.MemberwiseClone();
             }
         }
 
@@ -139,8 +144,8 @@ namespace Financial
             {
                 if (value >= CREDIT_MIN_INTEREST && value <= CREDIT_MAX_INTEREST)
                 {
-                    interest = value;
-                    this.interestRate = this.interest / CREDIT_FULL_PERCENT / CREDIT_MONTH_PER_YEAR;
+                    interest = value / CREDIT_FULL_PERCENT;
+                    this.interestRate = this.interest / CREDIT_MONTH_PER_YEAR;
                     this.bCalculated = false;
                 }
                 else
@@ -165,6 +170,9 @@ namespace Financial
                 {
                     term = value;
                     bCalculated = false;
+                    this.table = new PaymentPeriod[term];
+                    this.EntirePercentPayment = 0;
+                    this.EntireWholePayment = 0;
                 }
                 else
                 {
@@ -207,7 +215,7 @@ namespace Financial
             }
             else
             {
-                Console.WriteLine("Credit calculation is not executed");
+                Console.WriteLine("Credit table doesn't exist. Credit calculation is not executed");
             }
         }
 
@@ -240,7 +248,7 @@ namespace Financial
 
         public virtual void PaymentConditions()
         {
-            Console.WriteLine("\tLoan: {0} c.u.\n\tInterest: {1}%\n\tTerm: {2} monthes",
+            Console.WriteLine("\tLoan: {0} c.u.\n\tInterest: {1:p}\n\tTerm: {2} monthes",
                                 Math.Round(Loan, 4),
                                 Math.Round(Interest, 4),
                                 Term);
@@ -251,6 +259,65 @@ namespace Financial
         }
         public abstract void Calculate();
 
+        /*Interface methods*/
+        public object Clone()
+        {
+            //Creating a memberwise copy
+            Credit cr = (Credit)this.MemberwiseClone();
+
+            if (cr.table[0] != null)
+            {
+                //Creating new table
+                PaymentPeriod[] copyTable = new PaymentPeriod[this.Term];
+
+                //Copying each record to a new table using Clone function from PaymentPeriod class
+                Int32 count = 0;
+                foreach (PaymentPeriod pp in this.table)
+                    copyTable[count++] = (PaymentPeriod)pp.Clone();
+
+                //Set the new table
+                Array.Clear(table, 0, table.Length);
+                cr.table = copyTable;
+            }
+
+            //return new object which has a Credit type
+            return cr;
+         }
+
+        public IEnumerator GetEnumerator()
+        {
+            foreach (PaymentPeriod pp in table)
+                yield return pp;
+        }
+
+        public int CompareTo(Credit other)
+        {
+            if (this.Loan > other.Loan)
+                return 1;
+            else if (this.Loan < other.Loan)
+                return -1;
+            else
+                return 0;
+        }
+
+        /*Object functionality overloads*/
+        public override bool Equals(object obj)
+        {
+            if (obj != null && obj is Credit)
+            {
+                Credit temp = (Credit)obj;
+
+                if (temp.Loan == this.Loan
+                   && temp.Interest == this.Interest
+                   && temp.Term == this.Term
+                   && temp.CreditID == this.CreditID)
+                    return true;
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
 
         /*Data members: constant and readonly*/
         private const Int16                 CREDIT_INTEREST_BY_DEFAULT = 15;
@@ -276,7 +343,7 @@ namespace Financial
         protected Boolean                   bCalculated;
     }
 
-    public class AnnuityCredit : Credit
+    public class AnnuityCredit : Credit, ICloneable
     {
         /*Constructors*/
         public AnnuityCredit(float l, Credit.CreditType cID = Credit.CreditType.Annuity)
@@ -331,7 +398,7 @@ namespace Financial
         }
     }
 
-    public class DifferentialCredit : Credit
+    public class DifferentialCredit : Credit, ICloneable
     {
         public DifferentialCredit(Single l, Credit.CreditType cID = Credit.CreditType.Differential)
             : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, cID) { }
@@ -386,7 +453,7 @@ namespace Financial
         }
     }
 
-    public sealed class DifferentialCreditPlus : DifferentialCredit
+    public sealed class DifferentialCreditPlus : DifferentialCredit, ICloneable
     {
         public DifferentialCreditPlus(Single l)
             : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.DifferentialPlus) { }
@@ -399,7 +466,7 @@ namespace Financial
         }
     }
 
-    public sealed class AnnuityCreditPlus : AnnuityCredit
+    public sealed class AnnuityCreditPlus : AnnuityCredit, ICloneable
     {
         public AnnuityCreditPlus(Single l)
             : base(l, Credit.CREDIT_MIN_TERM, Credit.CREDIT_MIN_INTEREST, Credit.CreditType.AnnuityPlus) { }
