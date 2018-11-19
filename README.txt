@@ -6,6 +6,22 @@
 а так же реализуют функцию расчета кредита (аннуитетный кредит означает погашения ежемесячных задолженностей равными частями,
 а дифференциальный по убывающей схеме).
 
+Пример создания обьекта и его использование:
+
+Credit userCredit = new AnnuityCredit(15000, 12, 22,5); //Создать
+userCredit.Calculate(); //Расчитать
+userCredit.PaymentTable(); //Вывести кредитную таблицу
+
+Credit userCredit2 = (Credit)userCredit.Clone(); //Клонирование кредита (подробная копия)
+
+SortedSet<Credit> creditSet = new SortedSet<Credit> //Расположение кредитов в SortedSet<> (компаратор реализован в классе Credit)
+{
+    new AnnuityCredit(loan, term, interest),
+    new DifferentialCredit(loan, term, interest),
+    new AnnuityCreditPlus(loan, term, interest),
+    new DifferentialCreditPlus(loan, term, interest)
+};
+
 Пример ввода и вывода (аннуитетная схема выплат):
 
                                    ***CREDIT CALCULATOR***
