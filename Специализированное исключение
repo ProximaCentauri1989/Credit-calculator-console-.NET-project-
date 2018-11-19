@@ -10,4 +10,14 @@ namespace Financial
 
         }
     }
+    
+    class CreditNullTableException : Exception
+    {
+        public CreditNullTableException() { }
+        public CreditNullTableException(string mesg)
+            : base(mesg)
+        {
+
+        }
+    }
 }
